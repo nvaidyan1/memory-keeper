@@ -14,6 +14,7 @@ extends Node3D
 ##
 ## Facing: the character looks along +Z. His left is +X. Angles are radians.
 ## head_yaw/eye_yaw: positive turns toward +X. head_pitch/eye_pitch: positive looks up.
+## spine_roll, shoulder_roll, head_roll: positive tips toward +X. sink: metres lower in the seat.
 
 const UPPER_ARM := 0.27
 const FOREARM := 0.25
@@ -32,16 +33,18 @@ const IRIS := Color(0.33, 0.43, 0.52)
 const DARK := Color(0.08, 0.06, 0.06)
 const WHITE := Color(0.95, 0.94, 0.90)
 
-## The home pose: dozing in the chair, hands in the lap.
+## The home pose: fast asleep. Head lolled back and to one side, mouth open,
+## sunk into the chair, one arm on the arm rest and the other hanging over it.
 const REST := {
-	"head_yaw": 0.0, "head_pitch": -0.30, "head_roll": 0.14,
+	"head_yaw": 0.30, "head_pitch": 0.30, "head_roll": 0.38,
 	"eye_yaw": 0.0, "eye_pitch": 0.0,
 	"lid_l": 1.0, "lid_r": 1.0, "brow_l": 0.0, "brow_r": 0.0, "brow_angle": 0.0,
-	"mouth_curve": 0.0, "mouth_open": 0.0,
-	"spine_pitch": 0.0, "spine_roll": 0.0, "spine_yaw": 0.0,
-	"shoulder_lift": 0.0, "shoulder_yaw": 0.0,
-	"breath_rate": 1.0,
-	"hand_l": Vector3(0.10, 0.665, 0.30), "hand_r": Vector3(-0.10, 0.665, 0.30),
+	"mouth_curve": 0.0, "mouth_open": 0.45,
+	"spine_pitch": -0.13, "spine_roll": 0.07, "spine_yaw": 0.0,
+	"shoulder_lift": -0.035, "shoulder_yaw": 0.0, "shoulder_roll": 0.07,
+	"sink": 0.045,
+	"breath_rate": 0.62, "breath_depth": 2.2,
+	"hand_l": Vector3(0.315, 0.725, 0.13), "hand_r": Vector3(-0.42, 0.50, 0.05),
 	"grip_tilt_l": 0.0, "grip_tilt_r": 0.0,
 }
 
@@ -139,6 +142,20 @@ func anchor(anchor_name: String) -> Vector3:
 	match anchor_name:
 		"reading":  # where a held book sits to be read
 			return to_global(Vector3(0.05, 0.87, 0.37))
+		"arm_rest_l":
+			return to_global(Vector3(0.315, 0.725, 0.16))
+		"arm_rest_r":
+			return to_global(Vector3(-0.315, 0.725, 0.16))
+		"mouth":  # where a hand goes to cover a yawn
+			return to_global(Vector3(-0.03, 1.13, 0.22))
+		"wave_l":  # a hand flung out in dismissal
+			return to_global(Vector3(0.50, 1.02, 0.30))
+		"wave_r":
+			return to_global(Vector3(-0.50, 1.02, 0.30))
+		"lap_l":
+			return to_global(Vector3(0.10, 0.665, 0.30))
+		"lap_r":
+			return to_global(Vector3(-0.10, 0.665, 0.30))
 		_:
 			return global_position
 
@@ -197,12 +214,15 @@ func _process(delta: float) -> void:
 
 func _apply(delta: float) -> void:
 	_breath_phase += delta * _f("breath_rate") * TAU / 4.6
-	var breath := sin(_breath_phase) * 0.5 + 0.5
+	# The depth of each breath wanders a little, so sleep never looks metronomic.
+	var depth := _f("breath_depth") * (1.0 + 0.25 * sin(_breath_phase * 0.23) + 0.12 * sin(_breath_phase * 0.071 + 1.0))
+	var breath := (sin(_breath_phase) * 0.5 + 0.5) * depth
 
 	_spine.rotation = Vector3(_f("spine_pitch"), _f("spine_yaw"), -_f("spine_roll"))
 	_torso.scale = Vector3(1.0 + 0.025 * breath, 1.0, 0.8 * (1.0 + 0.05 * breath))
+	_spine.position.y = -_f("sink")
 	_shoulders.position.y = 0.48 + _f("shoulder_lift") + 0.008 * breath
-	_shoulders.rotation.y = _f("shoulder_yaw")
+	_shoulders.rotation = Vector3(0.0, _f("shoulder_yaw"), -_f("shoulder_roll"))
 	_neck.rotation = Vector3(-_f("head_pitch"), _f("head_yaw"), -_f("head_roll"))
 
 	for side: String in ["l", "r"]:

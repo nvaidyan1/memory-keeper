@@ -18,11 +18,15 @@ const BOOK_SLOTS := [
 	Vector3(0.66, TABLE_TOP_Y + BOOK_HALF_HEIGHT, 0.07),
 ]
 
-## Where disturbances come from: off to either side, and from the viewer.
-const NOISE_POINTS := {
-	"left": Vector3(-1.3, 1.25, 2.0),
+## Named places in the world that routines can refer to. Main adds the
+## points that depend on the camera (the edges of the frame).
+var points := {
+	"left": Vector3(-1.3, 1.25, 2.0),          # where noises come from
 	"right": Vector3(1.4, 1.5, 1.8),
 	"viewer": Vector3(0.14, 1.1, 2.9),
+	"far_left": Vector3(-1.6, 2.2, 3.0),       # somewhere to gaze while thinking
+	"far_right": Vector3(1.8, 2.3, 3.0),
+	"table_edge": Vector3(0.44, TABLE_TOP_Y + 0.045, 0.22),
 }
 
 var book: Node3D
@@ -33,6 +37,10 @@ var _materials := {}
 
 func _ready() -> void:
 	_build()
+
+
+func point(point_name: String) -> Vector3:
+	return points[point_name]
 
 
 func book_home() -> Vector3:

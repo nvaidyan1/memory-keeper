@@ -23,7 +23,7 @@ const T_QUAD := Tween.TRANS_QUAD
 const STYLES := {
 	"calm": {
 		"speed": 1.25, "turn_time": 0.42, "eye_delay": 0.0, "head_delay": 0.09,
-		"head_share": 0.72, "anticipation": 0.05, "head_tilt": 9.0,
+		"head_share": 0.72, "anticipation": 0.13, "head_tilt": 13.0,
 		"shoulder_follow": 0.30, "shoulder_lag": 0.16, "gaze_dwell": 1.5,
 		"intensity": 1.0, "trans": T_SINE,
 	},
@@ -50,7 +50,13 @@ const STYLES := {
 
 ## Face dials: lid 0 = open, 1 = closed. "_l" is the character's own left.
 const EXPRESSIONS := {
-	"asleep":     {"lid_l": 1.0, "lid_r": 1.0, "brow_l": 0.0, "brow_r": 0.0, "brow_angle": 0.0, "mouth_curve": 0.0, "mouth_open": 0.0},
+	"asleep":     {"lid_l": 1.0, "lid_r": 1.0, "brow_l": 0.0, "brow_r": 0.0, "brow_angle": 0.0, "mouth_curve": 0.0, "mouth_open": 0.45},
+	"alarmed":    {"lid_l": 0.0, "lid_r": 0.0, "brow_l": 1.0, "brow_r": 1.0, "brow_angle": -0.6, "mouth_curve": -0.5, "mouth_open": 0.8},
+	"indignant":  {"lid_l": 0.3, "lid_r": 0.3, "brow_l": -0.5, "brow_r": -0.5, "brow_angle": 1.0, "mouth_curve": -0.8, "mouth_open": 0.35},
+	"yawn":       {"lid_l": 1.0, "lid_r": 1.0, "brow_l": 0.9, "brow_r": 0.9, "brow_angle": -0.4, "mouth_curve": 0.0, "mouth_open": 1.0},
+	"absorbed":   {"lid_l": 0.45, "lid_r": 0.45, "brow_l": -0.4, "brow_r": -0.4, "brow_angle": 0.45, "mouth_curve": -0.1, "mouth_open": 0.0},
+	"amused":     {"lid_l": 0.5, "lid_r": 0.5, "brow_l": 0.4, "brow_r": 0.4, "brow_angle": -0.2, "mouth_curve": 1.0, "mouth_open": 0.3},
+	"astonished": {"lid_l": 0.0, "lid_r": 0.0, "brow_l": 1.0, "brow_r": 1.0, "brow_angle": 0.0, "mouth_curve": 0.1, "mouth_open": 0.6},
 	"neutral":    {"lid_l": 0.25, "lid_r": 0.25, "brow_l": 0.0, "brow_r": 0.0, "brow_angle": 0.0, "mouth_curve": 0.0, "mouth_open": 0.0},
 	"startled":   {"lid_l": 0.0, "lid_r": 0.0, "brow_l": 1.0, "brow_r": 1.0, "brow_angle": -0.2, "mouth_curve": 0.0, "mouth_open": 1.0},
 	"curious":    {"lid_l": 0.1, "lid_r": 0.15, "brow_l": 1.0, "brow_r": 0.3, "brow_angle": 0.0, "mouth_curve": 0.25, "mouth_open": 0.15},
@@ -83,4 +89,11 @@ const TIRED_ABOVE := 0.6
 # Stage and camera.
 const CLOUD_DRIFT := true        # false freezes the sky
 const CLOUD_SPEED := 0.0022      # sky texture widths per second; a cloud crosses the frame in minutes
-const CAMERA_ANGLE := -12.0      # degrees round the character from straight on; 0 is the MVP-0 view
+const CAMERA_ANGLE := 0.0        # degrees round the character; 0 is straight on, -12 is the angled view
+const BACKDROP := "painting"     # "painting" uses assets/backgrounds/backpainting.jpeg; "procedural" builds the MVP-1 loggia
+const BACKDROP_IMAGE := "res://assets/backgrounds/backpainting.jpeg"
+
+# Web remote and live view.
+const WEB_PORT := 8002
+const STREAM_FPS := 20           # frames a second sent to each viewer
+const STREAM_QUALITY := 0.72     # JPEG quality 0..1

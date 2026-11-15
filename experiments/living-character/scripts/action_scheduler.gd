@@ -51,12 +51,13 @@ func owns(resource: String) -> bool:
 	return false
 
 
-## Starts the action now, interrupts for it, or queues it. Returns false if dropped.
-func request(action: Dictionary) -> bool:
+## Starts the action now, interrupts for it, or queues it.
+## Returns "started", "interrupted others", "queued" or "dropped".
+func request(action: Dictionary) -> String:
 	var conflicts := _conflicts(action)
 	if conflicts.is_empty():
 		_start(action)
-		return true
+		return "started"
 	var can_interrupt := true
 	for id: int in conflicts:
 		var other: Dictionary = _running[id]
@@ -67,14 +68,14 @@ func request(action: Dictionary) -> bool:
 			_end(id, false)
 		# Follow-ups from the interrupted actions are now queued; the newcomer goes first.
 		_start(action)
-		return true
+		return "interrupted others"
 	if _queue.size() >= MAX_QUEUE:
-		return false
+		return "dropped"
 	for queued: Dictionary in _queue:
 		if queued.name == action.name:
-			return false
+			return "dropped"
 	_queue.append(action)
-	return true
+	return "queued"
 
 
 ## Forgets everything immediately. Running steps stop at their next check.

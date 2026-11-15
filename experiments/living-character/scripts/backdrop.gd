@@ -12,6 +12,7 @@ const STONE_SHADE := Color(0.50, 0.45, 0.38)
 const STONE_LIGHT := Color(0.68, 0.62, 0.52)
 const FLOOR := Color(0.47, 0.41, 0.35)
 
+const PAINTING_Z := -2.5
 const WALL_Z := -1.0
 const ARCH_HALF_WIDTH := 0.86
 const ARCH_SPRING := 1.32        # height where the curve of the arch begins
@@ -60,9 +61,37 @@ var _materials := {}
 
 
 func _ready() -> void:
-	_build_sky()
-	_build_landscape()
-	_build_loggia()
+	if Config.BACKDROP == "painting":
+		_build_painting()
+	else:
+		_build_sky()
+		_build_landscape()
+		_build_loggia()
+
+
+## The supplied painting on a flat cloth behind the stage, with a plain stone
+## floor in front of it. The cloth keeps the picture's proportions and is
+## sized so the camera sees only its middle band: the painted ledge meets the
+## floor, and the arched top with its black corners stays above the frame.
+func _build_painting() -> void:
+	var path := ProjectSettings.globalize_path(Config.BACKDROP_IMAGE)
+	var image := Image.load_from_file(path)
+	if image == null:
+		push_error("Backdrop painting not found at %s" % path)
+		return
+	image.generate_mipmaps()
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = ImageTexture.create_from_image(image)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(0.92, 0.92, 0.92)   # a touch darker, so the figure leads
+	var height := 5.2
+	var width := height * image.get_width() / image.get_height()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(width, height)
+	# The top of the painted ledge sits 64.5% of the way down the picture;
+	# this places it 0.75 m above the floor, like a parapet.
+	_add(quad, material, Vector3(0.14, 0.75 - 0.355 * height + height / 2.0, PAINTING_Z))
+	_add(_box(Vector3(8, 0.04, 8)), _material(Color(0.60, 0.56, 0.49)), Vector3(0, -0.02, PAINTING_Z + 4.0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _flat(color: Color) -> StandardMaterial3D:

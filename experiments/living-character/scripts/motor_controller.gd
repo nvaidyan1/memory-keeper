@@ -12,6 +12,7 @@ const FACE_CHANNELS := ["lid_l", "lid_r", "brow_l", "brow_r", "brow_angle", "mou
 
 var rig: Node3D
 var held := {}            # side -> prop being held
+var braced := {}          # side -> true while that hand is planted on something
 var _grip_offset := {}    # prop -> hand position minus prop position at the moment of grasp
 var _prop_tweens: Array[Tween] = []
 
@@ -88,6 +89,16 @@ func _aim_gaze(yaw: float, pitch: float, st: Dictionary) -> float:
 	return start + turn + lag * 0.5
 
 
+## Looks at a point with the eyes alone; the head stays where it is.
+func look_eyes(target: Vector3, seconds := 0.3) -> float:
+	var offset: Vector3 = target - rig.eye_position()
+	var yaw := atan2(offset.x, offset.z) - float(rig.get_value("head_yaw"))
+	var pitch := atan2(offset.y, Vector2(offset.x, offset.z).length()) - float(rig.get_value("head_pitch"))
+	rig.drive("eye_yaw", clampf(yaw, -Config.MAX_EYE_ANGLE, Config.MAX_EYE_ANGLE), seconds)
+	rig.drive("eye_pitch", clampf(pitch, -Config.MAX_EYE_ANGLE, Config.MAX_EYE_ANGLE), seconds)
+	return seconds
+
+
 ## Rolls the eyes up and around toward one side (sign: +1 his left, -1 his right).
 func eye_roll(toward: float, seconds := 0.7) -> float:
 	var up := Config.MAX_EYE_ANGLE
@@ -95,6 +106,23 @@ func eye_roll(toward: float, seconds := 0.7) -> float:
 			[up * 0.8, seconds * 0.35], [0.0, seconds * 0.3]])
 	rig.drive_seq("eye_yaw", [[-toward * 0.15, seconds * 0.3], [toward * Config.MAX_EYE_ANGLE, seconds * 0.7]])
 	return seconds
+
+
+## Tips the head sideways (degrees, positive toward his left) without turning it.
+func tilt_head(degrees: float, seconds := 0.5, delay := 0.0) -> float:
+	rig.drive("head_roll", deg_to_rad(degrees), seconds, Tween.TRANS_SINE, Tween.EASE_IN_OUT, delay)
+	return seconds + delay
+
+
+## Nods: dips the head `degrees` and returns, `count` times.
+func nod(degrees := 8.0, count := 1, seconds := 0.45) -> float:
+	var pitch: float = rig.get_value("head_pitch")
+	var keys := []
+	for i in count:
+		keys.append([pitch - deg_to_rad(degrees), seconds * 0.45])
+		keys.append([pitch, seconds * 0.55])
+	rig.drive_seq("head_pitch", keys)
+	return seconds * count
 
 
 ## Closes both eyes to `amount` (0 open, 1 shut) without changing the rest of the face.
@@ -156,8 +184,21 @@ func shoulders(keys: Array, delay := 0.0) -> float:
 	return total
 
 
-func breathe(rate: float, seconds := 1.0) -> void:
+## Tips the line of the shoulders (radians, positive raises his right, drops his left).
+func tilt_shoulders(amount: float, seconds := 0.5, delay := 0.0) -> float:
+	rig.drive("shoulder_roll", amount, seconds, Tween.TRANS_SINE, Tween.EASE_IN_OUT, delay)
+	return seconds + delay
+
+
+## Sits up (0) or sinks into the chair (metres).
+func sink(amount: float, seconds := 0.8, delay := 0.0) -> float:
+	rig.drive("sink", amount, seconds, Tween.TRANS_SINE, Tween.EASE_IN_OUT, delay)
+	return seconds + delay
+
+
+func breathe(rate: float, seconds := 1.0, depth := 1.0) -> void:
 	rig.drive("breath_rate", rate, seconds)
+	rig.drive("breath_depth", depth, seconds)
 
 
 # ---------------------------------------------------------------- arms and props
@@ -172,6 +213,39 @@ func reach(target: Vector3, side := "l", st: Dictionary = Config.STYLES["task"])
 	var lift := minf(Config.REACH_ARC, travel * 0.25)
 	rig.drive_arc("hand_" + side, rig.to_local(target), lift, seconds, seconds * 0.12)
 	return seconds * 1.12
+
+
+## Moves a hand to a point without leaning the torso: for gestures.
+func gesture(target: Vector3, side := "l", seconds := 0.5, lift := 0.04, delay := 0.0) -> float:
+	if held.has(side):
+		return 0.0
+	rig.drive_arc("hand_" + side, rig.to_local(reachable(target, side)), lift, seconds, delay)
+	return seconds + delay
+
+
+## Plants a hand on a surface or edge to steady himself: a quick, direct
+## reach with no arc. The point is pulled in to what the arm can reach
+## without stretching, so the pose never over-extends.
+func brace(target: Vector3, side := "l", seconds := 0.28, delay := 0.0) -> float:
+	if held.has(side):
+		return 0.0
+	braced[side] = true
+	rig.drive("hand_" + side, rig.to_local(reachable(target, side)), seconds, Tween.TRANS_QUAD, Tween.EASE_OUT, delay)
+	return seconds + delay
+
+
+func release_brace(side := "l") -> void:
+	braced.erase(side)
+
+
+## The nearest point to `target` that the arm reaches at 92% extension.
+func reachable(target: Vector3, side: String) -> Vector3:
+	var shoulder: Vector3 = rig.shoulder_position(side)
+	var offset: Vector3 = target - shoulder
+	var limit: float = rig.arm_reach() * 0.92
+	if offset.length() <= limit:
+		return target
+	return shoulder + offset.normalized() * limit
 
 
 ## How far the torso must lean (x: sideways, y: forward) to bring a point
@@ -256,6 +330,7 @@ func tilt_grip(angle: float, side := "l", seconds := 0.6, delay := 0.0) -> float
 ## keeps holding it where it is.
 func return_to_rest(st: Dictionary = Config.STYLES["calm"], include_face := true) -> float:
 	var seconds: float = 1.1 / st.speed
+	braced.clear()
 	for channel: String in rig.channel_names():
 		if channel.begins_with("hand_") or channel.begins_with("grip_tilt_"):
 			var side := channel.right(1)
@@ -276,6 +351,7 @@ func reset() -> Array:
 		if tween.is_valid():
 			tween.kill()
 	_prop_tweens.clear()
+	braced.clear()
 	var dropped := held.values()
 	held.clear()
 	_grip_offset.clear()

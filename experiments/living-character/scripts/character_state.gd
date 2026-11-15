@@ -6,7 +6,7 @@ const Config := preload("res://scripts/config.gd")
 var mood := "calm"            # calm | irritated | tired
 var fatigue := 0.0            # 0 rested .. 1 exhausted
 var attention := "nothing"    # name of what he is attending to
-var activity := "dozing"      # what the body is doing, for the overlay
+var activity := "asleep"      # what the body is doing, for the overlay
 var stimulus_times: Array[float] = []
 
 
@@ -14,7 +14,7 @@ func reset() -> void:
 	mood = "calm"
 	fatigue = 0.0
 	attention = "nothing"
-	activity = "dozing"
+	activity = "asleep"
 	stimulus_times.clear()
 
 
