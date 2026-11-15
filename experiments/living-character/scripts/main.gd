@@ -6,9 +6,15 @@ extends Node3D
 ##   --seed=123        deterministic autonomous behaviour
 ##   --auto            start in autonomous mode
 ##   --autotest        play a scripted key sequence, record measurements, quit
+##   --review          play the six review sequences (86 s), then quit
 ##   --shots=DIR       with --autotest, save a screenshot twice a second into DIR
+##   --camera=DEGREES  camera angle round the character (0 is straight on)
+##   --no-overlay      hide the debug text
+##   --trace=FILE      write head, hand and book positions every frame as CSV
 
 const CharacterView := preload("res://scripts/character_view.gd")
+const Config := preload("res://scripts/config.gd")
+const Backdrop := preload("res://scripts/backdrop.gd")
 const Stage := preload("res://scripts/stage.gd")
 const MotorController := preload("res://scripts/motor_controller.gd")
 const ActionScheduler := preload("res://scripts/action_scheduler.gd")
@@ -23,7 +29,11 @@ var behaviour: Node
 var state: RefCounted
 var overlay: Label
 
+var _camera_angle: float = Config.CAMERA_ANGLE
+var _show_overlay := true
+var _trace: FileAccess
 var _autotest := false
+var _review := false
 var _shots_dir := ""
 var _clock := 0.0
 var _script: Array = []
@@ -49,8 +59,18 @@ func _ready() -> void:
 			start_auto = true
 		elif arg == "--autotest":
 			_autotest = true
+		elif arg == "--review":
+			_autotest = true
+			_review = true
 		elif arg.begins_with("--shots="):
 			_shots_dir = arg.trim_prefix("--shots=")
+		elif arg.begins_with("--camera="):
+			_camera_angle = float(arg.trim_prefix("--camera="))
+		elif arg == "--no-overlay":
+			_show_overlay = false
+		elif arg.begins_with("--trace="):
+			_trace = FileAccess.open(arg.trim_prefix("--trace="), FileAccess.WRITE)
+			_trace.store_line("t,action,head_x,head_y,head_z,nose_x,nose_y,nose_z,hand_x,hand_y,hand_z,book_x,book_y,book_z,held")
 
 	_build_world()
 	stage = Stage.new()
@@ -90,33 +110,42 @@ func _ready() -> void:
 
 
 func _build_world() -> void:
+	add_child(Backdrop.new())
+
+	# The camera circles the character at a fixed distance and height.
 	var camera := Camera3D.new()
 	camera.fov = 34.0
 	add_child(camera)
-	camera.position = Vector3(0.14, 1.0, 2.9)
-	camera.look_at(Vector3(0.14, 0.93, 0.0))
+	var aim := Vector3(0.14, 0.93, 0.0)
+	var angle := deg_to_rad(_camera_angle)
+	camera.position = aim + Vector3(sin(angle) * 2.9, 0.07, cos(angle) * 2.9)
+	camera.look_at(aim)
 	camera.current = true
 
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-38, 32, 0)
-	sun.light_energy = 1.15
-	sun.light_color = Color(1.0, 0.93, 0.82)
-	sun.shadow_enabled = true
-	add_child(sun)
+	# Soft key from the front, as if from the open side of the loggia, with
+	# gentle shadows; a cool fill from the other side; warm ambient.
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-32, 28, 0)
+	key.light_energy = 1.05
+	key.light_color = Color(1.0, 0.94, 0.84)
+	key.shadow_enabled = true
+	key.shadow_opacity = 0.45
+	key.shadow_blur = 2.5
+	add_child(key)
 
 	var fill := OmniLight3D.new()
-	fill.position = Vector3(-0.9, 1.4, 1.6)
-	fill.light_energy = 0.5
-	fill.light_color = Color(0.75, 0.8, 1.0)
+	fill.position = Vector3(-1.1, 1.5, 1.8)
+	fill.light_energy = 0.35
+	fill.light_color = Color(0.78, 0.84, 1.0)
 	fill.omni_range = 5.0
 	add_child(fill)
 
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.07, 0.05, 0.05)
+	environment.background_color = Color(0.36, 0.55, 0.78)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.55, 0.5, 0.48)
-	environment.ambient_light_energy = 0.55
+	environment.ambient_light_color = Color(0.86, 0.80, 0.72)
+	environment.ambient_light_energy = 0.42
 	var world := WorldEnvironment.new()
 	world.environment = environment
 	add_child(world)
@@ -131,6 +160,7 @@ func _build_overlay() -> void:
 	overlay.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 	overlay.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	layer.add_child(overlay)
+	layer.visible = _show_overlay
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -187,6 +217,14 @@ func _process(delta: float) -> void:
 		"",
 		"1 curious  2 irritated  3 tired  4 book  5 move book  Space auto  R reset",
 	])
+	if _trace != null:
+		var eyes: Vector3 = view.eye_position()
+		var nose: Vector3 = view.gaze_point()
+		var hand_now: Vector3 = view.hand_position("l")
+		var book_now: Vector3 = stage.book.global_position
+		_trace.store_line("%.4f,%s,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%d" % [
+			_clock, "+".join(running).replace(",", ";"), eyes.x, eyes.y, eyes.z, nose.x, nose.y, nose.z,
+			hand_now.x, hand_now.y, hand_now.z, book_now.x, book_now.y, book_now.z, 1 if motor.is_holding("l") else 0])
 	if _autotest:
 		_run_autotest(delta)
 
@@ -195,6 +233,15 @@ func _process(delta: float) -> void:
 
 ## [seconds, what]: a key to press, or a note to print.
 func _autotest_script() -> Array:
+	if _review:
+		# The six sequences for motion review, back to back.
+		return [
+			[1.0, KEY_1], [8.0, KEY_2], [19.0, KEY_3],
+			[31.5, KEY_4],                      # book, near position
+			[48.0, KEY_5], [49.0, KEY_4],       # book, far position
+			[65.5, KEY_4], [74.0, KEY_1],       # noise while reading
+			[86.0, "quit"],
+		]
 	return [
 		[1.0, KEY_1], [8.5, KEY_2], [18.5, KEY_3],
 		[29.0, KEY_4],                       # book from slot 0

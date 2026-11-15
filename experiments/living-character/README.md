@@ -1,4 +1,4 @@
-# Living character (MVP-0)
+# Living character (MVP-0, with the MVP-1 stage and appearance)
 
 A primitive seated mannequin that reacts, reaches and idles from a small set of reusable motor commands. It tests the architecture in `MEMORY_KEEPER_README.md`, not the look. The WebGL portrait prototype at the repository root is untouched.
 
@@ -10,7 +10,13 @@ From the repository root:
 experiments/living-character/scripts/run.sh
 ```
 
-Options: `--seed=7` (repeatable autonomous run), `--auto` (start autonomous), `--autotest --shots=/absolute/dir` (scripted key sequence with measurements, then quits).
+Options: `--seed=7` (repeatable autonomous run), `--auto` (start autonomous), `--camera=0` (straight-on view; the default is -12 degrees), `--no-overlay`, `--autotest --shots=/absolute/dir` (scripted key sequence with measurements, then quits).
+
+To re-record the motion review video (86 s, 30 frames a second) into `review/motion_review.mp4`:
+
+```sh
+experiments/living-character/scripts/record_review.sh
+```
 
 The script uses `local-tools/Godot.app`. To use another Godot 4 build: `GODOT=/path/to/Godot experiments/living-character/scripts/run.sh`.
 
@@ -40,9 +46,21 @@ In autonomous mode the reaction is chosen from state: the first noise gets curio
 | `scripts/motor_controller.gd` | `look_at`, `turn_head`, `blink`, `express`, `lean`, `reach`, `grasp`, `release`, `return_to_rest` and a few more |
 | `scripts/character_view.gd` | The primitive rig: meshes, pivots, face, arm solver, tweening of dials |
 | `scripts/stage.gd` | Chair, table, book, book slots, noise sources |
+| `scripts/backdrop.gd` | Sky with drifting clouds, landscape, arched loggia. Scenery only |
+| `scripts/record_review.sh`, `scripts/encode_movie.swift` | Render the review sequences and join the frames into an .mp4 |
 | `scripts/main.gd` | Wiring, keys, overlay, self-test |
 
 A second character replaces `character_view.gd` only. The interface it must provide is listed at the top of that file.
+
+## Stage and appearance (MVP-1)
+
+- **Backdrop:** built from Godot primitives and two small shaders, with no image assets. The wall's arch is cut by a shader; the landscape is flat unshaded colour.
+- **Clouds:** one seamless noise texture sampled twice at different speeds. `CLOUD_DRIFT` and `CLOUD_SPEED` in `scripts/config.gd` turn it off or change its pace.
+- **Character:** same rig and dials. Eyelids are half shells that roll over real eyeballs; the moustache follows the mouth; a cape, flared sleeves and a draped lap hide the joints.
+- **Camera:** `CAMERA_ANGLE` in `scripts/config.gd`, default -12 degrees.
+- **Review material:** `review/` holds before and after screenshots and the recording.
+
+Measured after these changes: resident memory 238 MB about 10 s after launch and 196 MB at about 60 s (before: 194 MB and 163 MB). Scripts are 136 KB; the recording is 19 MB.
 
 ## Approximations
 

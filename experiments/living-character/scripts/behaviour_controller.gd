@@ -126,7 +126,7 @@ func _react_curious(where: Vector3, source: String) -> Dictionary:
 			motor.express("startled", st.intensity, 0.07)
 			motor.shoulders([[0.04, 0.09, Tween.TRANS_QUAD, Tween.EASE_OUT], [0.012, 0.35]])
 			motor.lean(-0.07, 0.0, 0.12)
-			motor.turn_head(0.0, motor.style({"speed": 3.0}), 4.0)
+			motor.turn_head(0.0, motor.style({"speed": 2.2}), 4.0)
 			motor.breathe(2.0, 0.2)
 			return 0.3,
 		func() -> float:
@@ -254,22 +254,17 @@ func _book_action() -> Dictionary:
 			var reading: Vector3 = motor.anchor("reading")
 			motor.express("content", 1.0, 0.8)
 			motor.tilt_grip(-0.95, BOOK_ARM, 0.8, 0.3)
-			motor.look_at(reading, motor.style({"speed": 0.7, "head_share": 0.85, "head_tilt": 0.0}))
+			motor.look_at(reading, motor.style({"speed": 0.6, "head_share": 0.8, "head_tilt": 0.0, "shoulder_follow": 0.0}))
 			return motor.reach(motor.hand_target_for(book, reading), BOOK_ARM, st) + 0.3,
 	]
-	# Reading: the eyes travel across the page a few times.
+	# Reading: the head stays on the book while the eyes travel across the
+	# page and flick back, a few times.
 	for line in 3:
 		steps.append(func() -> float:
 			state.activity = "reading"
-			var page: Vector3 = book.global_position
-			motor.look_at(page + Vector3(0.05, 0.02, 0), motor.style({"speed": 2.0, "head_share": 0.88, "head_tilt": 0.0}))
-			return 0.35)
-		steps.append(func() -> float:
-			var page: Vector3 = book.global_position
-			motor.look_at(page + Vector3(-0.05, -0.01, 0), motor.style({"speed": 0.35, "head_share": 0.88, "head_tilt": 0.0}))
 			if line == 1:
 				motor.blink()
-			return 1.1)
+			return motor.scan_eyes(0.16, -0.16, 1.25) + 0.1)
 	steps.append_array(_put_back_steps())
 	return {
 		"name": "read the book", "resources": HEAD + ["arm_l", "prop"], "priority": 1, "interruptible": true,

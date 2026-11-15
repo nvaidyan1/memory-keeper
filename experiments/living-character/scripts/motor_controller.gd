@@ -111,6 +111,13 @@ func shake_head(amplitude := 0.08) -> float:
 	return 0.33
 
 
+## Moves only the eyes: a quick flick to one side, then a slow travel to the
+## other, relative to wherever the head is pointing. Used for reading.
+func scan_eyes(from_yaw: float, to_yaw: float, seconds := 1.2) -> float:
+	rig.drive_seq("eye_yaw", [[from_yaw, 0.12, Tween.TRANS_QUAD, Tween.EASE_OUT], [to_yaw, seconds, Tween.TRANS_LINEAR]])
+	return seconds + 0.12
+
+
 func blink() -> float:
 	for side: String in ["l", "r"]:
 		var channel := "lid_" + side

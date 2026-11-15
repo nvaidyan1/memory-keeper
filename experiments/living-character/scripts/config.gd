@@ -79,3 +79,8 @@ const FATIGUE_PER_REACTION := 0.14
 const FATIGUE_PER_TASK := 0.22
 const FATIGUE_RECOVERY := 0.012  # per second at rest
 const TIRED_ABOVE := 0.6
+
+# Stage and camera.
+const CLOUD_DRIFT := true        # false freezes the sky
+const CLOUD_SPEED := 0.0022      # sky texture widths per second; a cloud crosses the frame in minutes
+const CAMERA_ANGLE := -12.0      # degrees round the character from straight on; 0 is the MVP-0 view

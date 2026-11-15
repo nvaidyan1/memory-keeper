@@ -4,3 +4,4 @@ __pycache__/
 local-tools/
 .local/
 .godot/
+experiments/living-character/review/*.mp4

@@ -1,10 +1,12 @@
 extends Node3D
-## The set: chair, table, book and the places things can be. Static geometry
-## plus named points the behaviour layer can refer to.
+## The furniture and props the character uses: chair, table, book, and the
+## named places the behaviour layer can refer to. The scenery behind them
+## lives in backdrop.gd.
 
-const WOOD := Color(0.45, 0.30, 0.16)
-const WOOD_DARK := Color(0.30, 0.19, 0.10)
-const BOOK_RED := Color(0.62, 0.14, 0.12)
+const WOOD := Color(0.42, 0.29, 0.19)
+const WOOD_DARK := Color(0.30, 0.20, 0.14)
+const CUSHION := Color(0.52, 0.24, 0.20)
+const BOOK_RED := Color(0.60, 0.18, 0.15)
 const PAGE := Color(0.93, 0.89, 0.78)
 
 const TABLE_TOP_Y := 0.70
@@ -71,7 +73,8 @@ func _material(color: Color, unshaded := false) -> StandardMaterial3D:
 	if not _materials.has(key):
 		var material := StandardMaterial3D.new()
 		material.albedo_color = color
-		material.roughness = 0.85
+		material.roughness = 1.0
+		material.metallic_specular = 0.0
 		if unshaded:
 			material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_materials[key] = material
@@ -89,23 +92,37 @@ func _box(parent: Node3D, size: Vector3, color: Color, pos: Vector3) -> MeshInst
 	return instance
 
 
+func _cylinder(parent: Node3D, top: float, bottom: float, height: float, color: Color, pos: Vector3) -> MeshInstance3D:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = top
+	mesh.bottom_radius = bottom
+	mesh.height = height
+	mesh.radial_segments = 28
+	mesh.material = _material(color)
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = pos
+	parent.add_child(instance)
+	return instance
+
+
 func _build() -> void:
-	# Floor and back wall.
-	_box(self, Vector3(4, 0.04, 4), Color(0.20, 0.15, 0.12), Vector3(0, -0.02, 0))
-	_box(self, Vector3(4, 3, 0.05), Color(0.16, 0.12, 0.11), Vector3(0, 1.5, -0.6))
-
-	# Chair: seat, tall back, arm rests, legs.
-	_box(self, Vector3(0.58, 0.07, 0.52), WOOD, Vector3(0, 0.44, 0.02))
-	_box(self, Vector3(0.62, 1.15, 0.07), WOOD, Vector3(0, 0.98, -0.25))
-	_box(self, Vector3(0.50, 0.95, 0.03), WOOD_DARK, Vector3(0, 1.0, -0.21))
+	# Chair: seat with a cushion, a low curved-looking back that stops at the
+	# shoulders so the head is seen against the view, arm rests and legs.
+	_box(self, Vector3(0.60, 0.06, 0.54), WOOD, Vector3(0, 0.43, 0.02))
+	_box(self, Vector3(0.52, 0.05, 0.46), CUSHION, Vector3(0, 0.475, 0.04))
+	_box(self, Vector3(0.60, 0.50, 0.06), WOOD, Vector3(0, 0.86, -0.25))
+	_box(self, Vector3(0.48, 0.38, 0.03), CUSHION, Vector3(0, 0.86, -0.215))
+	_box(self, Vector3(0.66, 0.05, 0.09), WOOD_DARK, Vector3(0, 1.125, -0.25))
 	for x: float in [-0.31, 0.31]:
-		_box(self, Vector3(0.06, 0.05, 0.46), WOOD, Vector3(x, 0.66, 0.03))
-		_box(self, Vector3(0.06, 0.66, 0.06), WOOD, Vector3(x, 0.33, 0.24))
-		_box(self, Vector3(0.06, 0.44, 0.06), WOOD, Vector3(x, 0.22, -0.22))
+		_box(self, Vector3(0.06, 0.045, 0.48), WOOD_DARK, Vector3(x, 0.665, 0.02))
+		_box(self, Vector3(0.055, 0.66, 0.055), WOOD, Vector3(x, 0.33, 0.24))
+		_box(self, Vector3(0.055, 1.10, 0.055), WOOD, Vector3(x, 0.55, -0.25))
 
-	# Side table on the character's left.
-	_box(self, Vector3(0.38, 0.04, 0.46), WOOD_DARK, Vector3(0.61, TABLE_TOP_Y - 0.02, 0.17))
-	_box(self, Vector3(0.07, TABLE_TOP_Y - 0.04, 0.07), WOOD_DARK, Vector3(0.61, (TABLE_TOP_Y - 0.04) / 2.0, 0.17))
+	# Round side table on a pedestal, on the character's left.
+	_cylinder(self, 0.28, 0.28, 0.035, WOOD_DARK, Vector3(0.61, TABLE_TOP_Y - 0.0175, 0.17))
+	_cylinder(self, 0.045, 0.06, TABLE_TOP_Y - 0.08, WOOD, Vector3(0.61, (TABLE_TOP_Y - 0.08) / 2.0 + 0.04, 0.17))
+	_cylinder(self, 0.17, 0.20, 0.04, WOOD_DARK, Vector3(0.61, 0.02, 0.17))
 
 	# Book: origin at its centre.
 	book = Node3D.new()
@@ -118,8 +135,8 @@ func _build() -> void:
 	# Noise markers, shown only when a noise happens. Placed just inside the
 	# frame in the direction the noise comes from.
 	var marker_spots := {
-		"left": Vector3(-0.42, 1.55, 0.5),
-		"right": Vector3(0.72, 1.6, 0.5),
+		"left": Vector3(-0.50, 1.50, 0.9),
+		"right": Vector3(0.62, 1.55, 0.9),
 		"viewer": Vector3(0.14, 0.2, 1.2),
 	}
 	for point_name: String in marker_spots:

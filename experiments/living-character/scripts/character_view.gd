@@ -18,14 +18,19 @@ extends Node3D
 const UPPER_ARM := 0.27
 const FOREARM := 0.25
 
-const SKIN := Color(0.87, 0.72, 0.60)
-const ROBE := Color(0.42, 0.44, 0.56)
-const ROBE_DARK := Color(0.30, 0.31, 0.42)
-const HAIR := Color(0.93, 0.92, 0.88)
-const HAT := Color(0.33, 0.24, 0.36)
+const SKIN := Color(0.86, 0.70, 0.58)
+const SKIN_SHADE := Color(0.74, 0.58, 0.47)
+const ROBE := Color(0.36, 0.40, 0.52)
+const ROBE_DARK := Color(0.27, 0.30, 0.42)
+const MANTLE := Color(0.24, 0.26, 0.38)
+const TRIM := Color(0.72, 0.58, 0.30)
+const HAIR := Color(0.90, 0.89, 0.85)
+const BROW := Color(0.60, 0.58, 0.56)
+const HAT := Color(0.38, 0.27, 0.38)
+const LIP := Color(0.60, 0.34, 0.31)
+const IRIS := Color(0.33, 0.43, 0.52)
 const DARK := Color(0.08, 0.06, 0.06)
-const BROW := Color(0.45, 0.43, 0.42)
-const WHITE := Color(0.97, 0.96, 0.93)
+const WHITE := Color(0.95, 0.94, 0.90)
 
 ## The home pose: dozing in the chair, hands in the lap.
 const REST := {
@@ -50,8 +55,10 @@ var _torso: MeshInstance3D
 var _shoulders: Node3D
 var _neck: Node3D
 var _arms := {}     # side -> {upper, fore, grip, pole}
-var _pupils := {}   # side -> Node3D
-var _lids := {}     # side -> Node3D
+var _eyeballs := {} # side -> Node3D, rotates with the gaze
+var _lids := {}     # side -> upper eyelid, a half shell that rolls over the eye
+var _lower_lids := {}
+var _moustache := {}
 var _brows := {}    # side -> Node3D
 var _brow_base_y := 0.0
 var _mouth_l: Node3D
@@ -114,6 +121,11 @@ func eye_position() -> Vector3:
 	return _eye_anchor.global_position
 
 
+## A point 1 m in front of the face, for measuring where the head points.
+func gaze_point() -> Vector3:
+	return _eye_anchor.global_position + _eye_anchor.global_basis.z
+
+
 func hand_position(side: String) -> Vector3:
 	return _arms[side].grip.global_position
 
@@ -126,7 +138,7 @@ func shoulder_position(side: String) -> Vector3:
 func anchor(anchor_name: String) -> Vector3:
 	match anchor_name:
 		"reading":  # where a held book sits to be read
-			return to_global(Vector3(0.09, 0.86, 0.30))
+			return to_global(Vector3(0.05, 0.87, 0.37))
 		_:
 			return global_position
 
@@ -188,21 +200,24 @@ func _apply(delta: float) -> void:
 	var breath := sin(_breath_phase) * 0.5 + 0.5
 
 	_spine.rotation = Vector3(_f("spine_pitch"), _f("spine_yaw"), -_f("spine_roll"))
-	_torso.scale = Vector3(1.0 + 0.025 * breath, 1.0, 1.0 + 0.05 * breath)
+	_torso.scale = Vector3(1.0 + 0.025 * breath, 1.0, 0.8 * (1.0 + 0.05 * breath))
 	_shoulders.position.y = 0.48 + _f("shoulder_lift") + 0.008 * breath
 	_shoulders.rotation.y = _f("shoulder_yaw")
 	_neck.rotation = Vector3(-_f("head_pitch"), _f("head_yaw"), -_f("head_roll"))
 
 	for side: String in ["l", "r"]:
-		var lid: Node3D = _lids[side]
-		lid.scale.y = lerpf(0.04, 1.0, clampf(_f("lid_" + side), 0.0, 1.0))
-		var pupil: Node3D = _pupils[side]
-		pupil.position.x = clampf(sin(_f("eye_yaw")) * 0.034, -0.015, 0.015)
-		pupil.position.y = clampf(sin(_f("eye_pitch")) * 0.034, -0.013, 0.013)
+		var closed := clampf(_f("lid_" + side), 0.0, 1.0)
+		# The upper lid is a half shell: rolled back it bares the eye, rolled
+		# forward it covers it. The lower lid rises a little as the eye narrows.
+		_lids[side].rotation.x = lerpf(deg_to_rad(-58.0), deg_to_rad(90.0), closed)
+		_lower_lids[side].rotation.x = PI + 0.62 - 0.40 * closed
+		_eyeballs[side].rotation = Vector3(-_f("eye_pitch"), _f("eye_yaw"), 0.0)
 		var sign := 1.0 if side == "l" else -1.0
 		var brow: Node3D = _brows[side]
 		brow.position.y = _brow_base_y + _f("brow_" + side) * 0.02
 		brow.rotation.z = sign * _f("brow_angle") * 0.45
+		# The moustache droops with a frown and lifts with a smile.
+		_moustache[side].rotation.z = sign * (-0.42 + _f("mouth_curve") * 0.3)
 		_solve_arm(side)
 
 	var curve := _f("mouth_curve") * 0.55
@@ -250,13 +265,17 @@ func _aim(down: Vector3, hint: Vector3) -> Basis:
 
 # ---------------------------------------------------------------- geometry
 
-func _material(color: Color) -> StandardMaterial3D:
-	if not _materials.has(color):
+func _material(color: Color, two_sided := false) -> StandardMaterial3D:
+	var key := [color, two_sided]
+	if not _materials.has(key):
 		var material := StandardMaterial3D.new()
 		material.albedo_color = color
-		material.roughness = 0.9
-		_materials[color] = material
-	return _materials[color]
+		material.roughness = 1.0
+		material.metallic_specular = 0.0    # matte: no highlights
+		if two_sided:
+			material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_materials[key] = material
+	return _materials[key]
 
 
 func _pivot(parent: Node3D, pos: Vector3, node_name := "") -> Node3D:
@@ -269,9 +288,9 @@ func _pivot(parent: Node3D, pos: Vector3, node_name := "") -> Node3D:
 
 
 func _part(parent: Node3D, mesh: PrimitiveMesh, color: Color, pos := Vector3.ZERO,
-		rot := Vector3.ZERO, scl := Vector3.ONE) -> MeshInstance3D:
+		rot := Vector3.ZERO, scl := Vector3.ONE, two_sided := false) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
-	mesh.material = _material(color)
+	mesh.material = _material(color, two_sided)
 	instance.mesh = mesh
 	instance.position = pos
 	instance.rotation = rot
@@ -290,8 +309,18 @@ func _sphere(radius: float) -> SphereMesh:
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
+	mesh.radial_segments = 28
+	mesh.rings = 14
+	return mesh
+
+
+func _half_sphere(radius: float) -> SphereMesh:
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius
+	mesh.is_hemisphere = true
 	mesh.radial_segments = 24
-	mesh.rings = 12
+	mesh.rings = 8
 	return mesh
 
 
@@ -307,66 +336,96 @@ func _cone(top: float, bottom: float, height: float) -> CylinderMesh:
 	mesh.top_radius = top
 	mesh.bottom_radius = bottom
 	mesh.height = height
+	mesh.radial_segments = 28
 	return mesh
 
 
 func _build() -> void:
 	var hips := _pivot(self, Vector3(0, 0.52, 0), "Hips")
 
-	# Legs are static: thighs forward along the seat, shins down, robe hem.
+	# Seated robe: one draped mass over the lap, falling from the knees, with
+	# shoes showing. Static; it hides the legs entirely.
+	_part(hips, _sphere(0.20), ROBE_DARK, Vector3(0, 0.0, 0.17), Vector3.ZERO, Vector3(1.32, 0.50, 1.38))
+	_part(hips, _cone(0.20, 0.26, 0.50), ROBE_DARK, Vector3(0, -0.27, 0.37), Vector3(-0.08, 0, 0), Vector3(1.12, 1.0, 0.62))
+	_part(hips, _cone(0.265, 0.265, 0.025), TRIM, Vector3(0, -0.505, 0.385), Vector3.ZERO, Vector3(1.12, 1.0, 0.62))
 	for x: float in [-0.10, 0.10]:
-		_part(hips, _capsule(0.085, 0.50), ROBE_DARK, Vector3(x, 0.02, 0.20), Vector3(PI / 2.0, 0, 0))
-		_part(hips, _capsule(0.075, 0.50), ROBE_DARK, Vector3(x, -0.24, 0.42))
-		_part(hips, _box(Vector3(0.11, 0.06, 0.20)), DARK, Vector3(x, -0.49, 0.47))
+		_part(hips, _sphere(0.06), DARK.lightened(0.12), Vector3(x, -0.49, 0.53), Vector3.ZERO, Vector3(0.8, 0.5, 1.5))
 
 	_spine = _pivot(hips, Vector3.ZERO, "Spine")
-	_torso = _part(_spine, _capsule(0.17, 0.60), ROBE, Vector3(0, 0.27, 0))
+	_torso = _part(_spine, _cone(0.15, 0.23, 0.58), ROBE, Vector3(0, 0.25, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.8))
+	_part(_spine, _cone(0.235, 0.235, 0.05), TRIM, Vector3(0, 0.08, 0.0), Vector3.ZERO, Vector3(1.0, 1.0, 0.82))   # belt
 
 	_shoulders = _pivot(_spine, Vector3(0, 0.48, 0), "Shoulders")
-	_part(_shoulders, _capsule(0.07, 0.52), ROBE, Vector3.ZERO, Vector3(0, 0, PI / 2.0))
+	# A short mantle over the shoulders hides where the arms join the body.
+	_part(_shoulders, _sphere(0.30), MANTLE, Vector3(0, -0.03, 0), Vector3.ZERO, Vector3(1.0, 0.40, 0.66))
+	_part(_shoulders, _cone(0.066, 0.085, 0.035), TRIM, Vector3(0, 0.085, 0))            # collar
 
 	for side: String in ["l", "r"]:
 		var sign := 1.0 if side == "l" else -1.0
 		var upper := _pivot(_shoulders, Vector3(sign * 0.22, 0, 0), "UpperArm_" + side)
-		_part(upper, _capsule(0.055, UPPER_ARM + 0.08), ROBE, Vector3(0, -UPPER_ARM / 2.0, 0))
+		_part(upper, _sphere(0.072), ROBE)                                                   # shoulder
+		_part(upper, _cone(0.068, 0.056, UPPER_ARM), ROBE, Vector3(0, -UPPER_ARM / 2.0, 0))
 		var fore := _pivot(upper, Vector3(0, -UPPER_ARM, 0), "Forearm_" + side)
-		_part(fore, _capsule(0.048, FOREARM + 0.07), ROBE_DARK, Vector3(0, -FOREARM / 2.0, 0))
+		_part(fore, _sphere(0.057), ROBE)                                                    # elbow
+		# The sleeve flares toward the wrist and the hand comes out of it.
+		_part(fore, _cone(0.054, 0.062, FOREARM - 0.03), ROBE, Vector3(0, -(FOREARM - 0.03) / 2.0, 0))
+		_part(fore, _cone(0.064, 0.058, 0.03), ROBE_DARK, Vector3(0, -(FOREARM - 0.03), 0))
+		_part(fore, _cone(0.03, 0.034, 0.05), SKIN, Vector3(0, -FOREARM + 0.01, 0))          # wrist
+		_part(fore, _sphere(0.042), SKIN, Vector3(0, -FOREARM - 0.022, 0.004), Vector3.ZERO, Vector3(0.95, 1.2, 0.6))
+		_part(fore, _sphere(0.016), SKIN, Vector3(-sign * 0.034, -FOREARM - 0.012, 0.012))   # thumb
 		var grip := _pivot(fore, Vector3(0, -FOREARM, 0), "Grip_" + side)
-		_part(grip, _sphere(0.045), SKIN, Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.75, 1.15))
 		# Elbows bend outward, down and back.
 		_arms[side] = {"upper": upper, "fore": fore, "grip": grip, "pole": Vector3(sign * 0.55, -0.55, -0.65)}
 
 	_neck = _pivot(_spine, Vector3(0, 0.55, 0), "Neck")
-	_part(_neck, _capsule(0.05, 0.14), SKIN, Vector3(0, 0.03, 0))
+	_part(_neck, _cone(0.05, 0.072, 0.15), SKIN_SHADE, Vector3(0, 0.02, 0))
 	var head := _pivot(_neck, Vector3(0, 0.15, 0.01), "Head")
-	_part(head, _sphere(0.125), SKIN)
-	_part(head, _sphere(0.022), SKIN, Vector3(0, -0.012, 0.128))                      # nose
-	_part(head, _cone(0.0, 0.125, 0.26), HAT, Vector3(0, 0.235, -0.02))                # hat
-	_part(head, _cone(0.145, 0.145, 0.02), HAT, Vector3(0, 0.112, -0.03))              # hat brim, clear of the brows
-	_part(head, _cone(0.085, 0.012, 0.26), HAIR, Vector3(0, -0.225, 0.07), Vector3(0.16, 0, 0))  # beard, below the mouth
-	_part(head, _sphere(0.126), HAIR, Vector3(0, -0.02, -0.04), Vector3.ZERO, Vector3(1.0, 1.1, 0.9))  # hair
+	_part(head, _sphere(0.125), SKIN, Vector3.ZERO, Vector3.ZERO, Vector3(0.95, 1.06, 1.0))            # skull
+	_part(head, _sphere(0.096), SKIN, Vector3(0, -0.058, 0.018), Vector3.ZERO, Vector3(0.94, 0.92, 1.0))  # jaw
+	_part(head, _sphere(0.022), SKIN, Vector3(0, -0.006, 0.124), Vector3.ZERO, Vector3(0.8, 1.6, 1.1)) # nose bridge
+	_part(head, _sphere(0.021), SKIN_SHADE.lerp(SKIN, 0.5), Vector3(0, -0.032, 0.137))                   # nose tip
 
-	_eye_anchor = _pivot(head, Vector3(0, 0.02, 0.11), "Eyes")
+	# Hair, beard and hat.
+	_part(head, _sphere(0.126), HAIR, Vector3(0, -0.02, -0.04), Vector3.ZERO, Vector3(1.0, 1.1, 0.9))
+	for x: float in [-0.108, 0.108]:
+		_part(head, _capsule(0.04, 0.27), HAIR, Vector3(x, -0.11, -0.015), Vector3(0.1, 0, 0))
+	_part(head, _sphere(0.088), HAIR, Vector3(0, -0.135, 0.062), Vector3.ZERO, Vector3(1.08, 1.0, 0.8))
+	_part(head, _cone(0.082, 0.012, 0.22), HAIR, Vector3(0, -0.245, 0.10), Vector3(0.34, 0, 0), Vector3(1.0, 1.0, 0.7))
+	_part(head, _cone(0.158, 0.162, 0.014), HAT, Vector3(0, 0.108, -0.03), Vector3(-0.1, 0, 0))
+	_part(head, _cone(0.118, 0.122, 0.035), TRIM, Vector3(0, 0.125, -0.028), Vector3(-0.1, 0, 0))
+	_part(head, _cone(0.045, 0.118, 0.21), HAT, Vector3(0, 0.245, -0.04), Vector3(-0.1, 0, 0))
+	_part(head, _cone(0.0, 0.046, 0.13), HAT, Vector3(0.028, 0.395, -0.062), Vector3(-0.25, 0, -0.5))   # bent tip
+
+	_eye_anchor = _pivot(head, Vector3(0, 0.022, 0.11), "Eyes")
 	for side: String in ["l", "r"]:
 		var sign := 1.0 if side == "l" else -1.0
-		var eye := _pivot(head, Vector3(sign * 0.05, 0.02, 0.105), "Eye_" + side)
-		_part(eye, _sphere(0.031), WHITE, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1, 0.5))
-		var pupil := _pivot(eye, Vector3.ZERO)
-		_part(pupil, _sphere(0.014), DARK, Vector3(0, 0, 0.012), Vector3.ZERO, Vector3(1, 1, 0.5))
-		_pupils[side] = pupil
-		# Eyelid: a shutter hinged at the top of the eye that scales downward.
-		var lid := _pivot(eye, Vector3(0, 0.034, 0.016))
-		_part(lid, _box(Vector3(0.074, 0.068, 0.02)), SKIN.darkened(0.22), Vector3(0, -0.034, 0))
+		var eye := _pivot(head, Vector3(sign * 0.047, 0.022, 0.092), "Eye_" + side)
+		var ball := _pivot(eye, Vector3.ZERO)
+		_part(ball, _sphere(0.030), WHITE)
+		_part(ball, _sphere(0.0135), IRIS, Vector3(0, 0, 0.0262), Vector3.ZERO, Vector3(1, 1, 0.35))
+		_part(ball, _sphere(0.0068), DARK, Vector3(0, 0, 0.0292), Vector3.ZERO, Vector3(1, 1, 0.35))
+		_eyeballs[side] = ball
+		var lid := _pivot(eye, Vector3.ZERO)
+		_part(lid, _half_sphere(0.0325), SKIN_SHADE, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, true)
 		_lids[side] = lid
-		var brow := _pivot(head, Vector3(sign * 0.05, 0.068, 0.118))
-		_part(brow, _box(Vector3(0.078, 0.02, 0.02)), BROW)
+		var lower := _pivot(eye, Vector3.ZERO)
+		_part(lower, _half_sphere(0.0318), SKIN, Vector3.ZERO, Vector3.ZERO, Vector3.ONE, true)
+		_lower_lids[side] = lower
+		var brow := _pivot(head, Vector3(sign * 0.05, 0.068, 0.112))
+		_part(brow, _capsule(0.011, 0.082), BROW, Vector3.ZERO, Vector3(0, sign * 0.3, PI / 2.0), Vector3(1.0, 1.0, 1.0))
 		_brows[side] = brow
 	_brow_base_y = 0.068
 
-	# Mouth: two bars hinged at the centre, over a dark gap that opens.
-	var mouth := _pivot(head, Vector3(0, -0.058, 0.114))
-	_mouth_gap = _part(mouth, _box(Vector3(0.06, 0.04, 0.006)), DARK, Vector3(0, -0.014, -0.002))
+	# Mouth: two lips hinged at the centre over a dark gap, under a moustache
+	# whose halves follow the mouth.
+	var mouth := _pivot(head, Vector3(0, -0.082, 0.112))
+	_mouth_gap = _part(mouth, _box(Vector3(0.056, 0.036, 0.006)), DARK, Vector3(0, -0.013, -0.003))
 	_mouth_l = _pivot(mouth, Vector3.ZERO)
-	_part(_mouth_l, _box(Vector3(0.042, 0.014, 0.014)), Color(0.50, 0.20, 0.18), Vector3(0.021, 0, 0))
+	_part(_mouth_l, _capsule(0.0075, 0.05), LIP, Vector3(0.021, 0, 0), Vector3(0, 0, PI / 2.0))
 	_mouth_r = _pivot(mouth, Vector3.ZERO)
-	_part(_mouth_r, _box(Vector3(0.042, 0.014, 0.014)), Color(0.50, 0.20, 0.18), Vector3(-0.021, 0, 0))
+	_part(_mouth_r, _capsule(0.0075, 0.05), LIP, Vector3(-0.021, 0, 0), Vector3(0, 0, PI / 2.0))
+	for side: String in ["l", "r"]:
+		var sign := 1.0 if side == "l" else -1.0
+		var half := _pivot(head, Vector3(0, -0.058, 0.126))
+		_part(half, _capsule(0.015, 0.085), HAIR, Vector3(sign * 0.04, 0, -0.008), Vector3(0, sign * 0.35, PI / 2.0))
+		_moustache[side] = half
