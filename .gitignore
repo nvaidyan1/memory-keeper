@@ -1,3 +1,6 @@
 init brainstorm pics/
 .DS_Store
 __pycache__/
+local-tools/
+.local/
+.godot/
