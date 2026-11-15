@@ -1,0 +1,10 @@
+{
+  "image": "asleep.jpg",
+  "comment": "Pixel coordinates in the source image. 'figure' traces the character's outline wherever a moving part could slide over the background. 'head' is the part that moves rigidly; movement fades out around it.",
+  "figure": [[395,600],[420,520],[448,455],[470,418],[490,400],[476,372],[484,346],[508,326],[560,316],[602,320],[634,328],[672,345],[700,374],[713,410],[716,450],[702,520],[698,620],[730,655],[800,690],[870,740],[905,800],[992,800],[992,1401],[0,1401],[0,800],[335,800],[358,740],[375,650]],
+  "head": [[455,445],[474,372],[484,346],[508,326],[560,316],[602,320],[634,328],[672,345],[700,374],[713,410],[714,500],[690,585],[610,640],[520,625],[468,560]],
+  "headFalloff": 50,
+  "plateFillAbove": 660,
+  "plateGrow": 6,
+  "plateMaxBrightness": 70
+}

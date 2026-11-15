@@ -1,0 +1,54 @@
+{
+  "name": "dumbledore",
+  "image": "asleep.jpg",
+  "plate": "plate.jpg",
+  "rig": "rig.png",
+  "breathSeconds": 5.2,
+  "flicker": 0.16,
+  "lamp": { "x": 0.40, "y": 0.38, "r": 0.45 },
+
+  "head": { "pivotX": 0.544, "pivotY": 0.471 },
+
+  "eyes": [
+    { "x": 0.5635, "y": 0.3312, "halfWidth": 0.0150, "angle": 0.21, "tone": 1.0 },
+    { "x": 0.6330, "y": 0.3555, "halfWidth": 0.0150, "angle": 0.21, "tone": 0.62 }
+  ],
+
+  "regions": [
+    { "name": "chest and beard", "channel": "breath", "x": 0.42, "y": 0.63, "r": 0.20, "dx": 0, "dy": -0.0070, "swell": 0.024, "delay": 0 },
+    { "name": "shoulders", "channel": "breath", "x": 0.50, "y": 0.50, "r": 0.24, "dx": 0, "dy": -0.0040, "swell": 0.008, "delay": 0.04 },
+    { "name": "head", "channel": "breath", "x": 0.60, "y": 0.36, "r": 0.13, "dx": 0.0016, "dy": -0.0032, "swell": 0, "delay": 0.10 },
+    { "name": "upper body jolt", "channel": "jolt", "x": 0.50, "y": 0.55, "r": 0.25, "dx": 0, "dy": -0.006, "swell": 0.004 },
+    { "name": "brow, his right", "channel": "brow", "x": 0.560, "y": 0.314, "r": 0.020, "dx": 0, "dy": -0.0035, "swell": 0 },
+    { "name": "brow, his left", "channel": "brow", "x": 0.640, "y": 0.334, "r": 0.020, "dx": 0, "dy": -0.0035, "swell": 0 },
+    { "name": "face turn", "channel": "turn", "x": 0.590, "y": 0.360, "r": 0.050, "dx": 0.0060, "dy": 0.0012, "swell": 0 }
+  ],
+
+  "routines": {
+    "startled-wake": [
+      { "t": 0 },
+      { "t": 0.16, "ease": "out", "upright": 7, "lift": 0.012, "eyes": 1, "brow": 1, "jolt": 1, "lean": 0.02, "breathRate": 2.2 },
+      { "t": 0.55, "upright": 9, "lift": 0.006, "jolt": 0.2, "brow": 0.8, "lean": 0 },
+      { "t": 1.5 },
+      { "t": 1.61, "eyes": 0 },
+      { "t": 1.76, "eyes": 0.9 },
+      { "t": 2.3 },
+      { "t": 2.42, "ease": "out", "gazeX": -0.8 },
+      { "t": 3.0, "turn": -1, "upright": 10, "eyes": 0.66, "brow": -0.6, "lean": 0.03, "jolt": 0 },
+      { "t": 4.3 },
+      { "t": 4.42, "ease": "out", "gazeX": 0.9 },
+      { "t": 5.1, "turn": 1, "shift": 0.004 },
+      { "t": 6.4 },
+      { "t": 6.5, "eyes": 0 },
+      { "t": 6.64, "eyes": 0.6, "gazeX": 0 },
+      { "t": 7.2, "turn": 0, "shift": 0, "lean": 0.06, "lift": 0, "eyes": 0.52, "brow": -1 },
+      { "t": 9.2 },
+      { "t": 9.9, "lean": 0.01, "brow": 0, "eyes": 0.6, "breathRate": 1.4 },
+      { "t": 11.0, "eyes": 0.3, "upright": 6 },
+      { "t": 11.8, "eyes": 0.1, "upright": 3 },
+      { "t": 12.0, "ease": "out", "eyes": 0.5, "upright": 6 },
+      { "t": 13.5, "eyes": 0.15, "upright": 3 },
+      { "t": 15.5, "eyes": 0, "upright": 0, "lift": 0, "lean": 0, "breathRate": 1 }
+    ]
+  }
+}
